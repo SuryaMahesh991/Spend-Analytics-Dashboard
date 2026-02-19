@@ -86,7 +86,7 @@ if uploaded_file:
     PRICE = "PO Price"
     PLANT = "Plant" if "Plant" in df.columns else None
 
-    # Convert numeric safely
+    # Convert numeric columns safely
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors="ignore")
 
@@ -120,12 +120,14 @@ if uploaded_file:
         st.warning("No data available.")
         st.stop()
 
-    # Core price metrics (ignore zero for PO)
+    # Core price metrics
     price_non_zero = df_filtered[PRICE][df_filtered[PRICE] != 0]
+
     min_price = price_non_zero.min() if not price_non_zero.empty else None
     max_price = price_non_zero.max() if not price_non_zero.empty else None
     spread = (max_price - min_price) if min_price is not None and max_price is not None else 0
     spread_pct = (spread / max_price * 100) if max_price else 0
+    supplier_count = df_filtered[SUPPLIER].nunique()
 
     # --------------------------------------------------
     # TABS
@@ -154,7 +156,7 @@ if uploaded_file:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Filtered Data View
+        # Filtered Data Table
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Filtered Data View</div>', unsafe_allow_html=True)
 
@@ -203,11 +205,9 @@ if uploaded_file:
                 "Min": min_val,
                 "(Min) Part No": min_row.get(PART) if min_row is not None else None,
                 "(Min) Plant": min_row.get(PLANT) if min_row is not None else None,
-                "(Min) Vendor": min_row.get(SUPPLIER) if min_row is not None else None,
                 "Max": max_val,
-                "(Max) Part No": max_row.get(PART) if max_row is not None else None,
+                "(Max) PartNo": max_row.get(PART) if max_row is not None else None,
                 "(Max) Plant": max_row.get(PLANT) if max_row is not None else None,
-                "(Max) Vendor": max_row.get(SUPPLIER) if max_row is not None else None,
             })
 
         summary_df = pd.DataFrame(summary_data)
