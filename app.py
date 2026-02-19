@@ -86,9 +86,24 @@ if uploaded_file:
     PRICE = "PO Price"
     PLANT = "Plant" if "Plant" in df.columns else None
 
-    # Convert numeric safely
-    for col in df.columns:
-        df[col] = pd.to_numeric(df[col], errors="ignore")
+    # ---- Define Only Cost Metrics ----
+    METRICS = [
+        "PO Price",
+        "RMRatePerKg",
+        "GrossWeight",
+        "Net RM Cost",
+        "Net Conversion Cost",
+        "Overhead Combined Cost",
+        "Profit Cost",
+        "Rejection Cost",
+        "Packaging Cost",
+        "Freight Cost"
+    ]
+
+    # Convert metrics to numeric
+    for col in METRICS:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
     # ---------------- FILTERS ----------------
     st.sidebar.markdown("## 🎯 Filters")
@@ -120,11 +135,11 @@ if uploaded_file:
         st.warning("No data available.")
         st.stop()
 
-    # Core price metrics (ignore zero for PO)
-    price_non_zero = df_filtered[PRICE][df_filtered[PRICE] != 0]
-    min_price = price_non_zero.min() if not price_non_zero.empty else None
-    max_price = price_non_zero.max() if not price_non_zero.empty else None
-    spread = (max_price - min_price) if min_price is not None and max_price is not None else 0
+    # Core price metrics ignoring 0
+    price_series = df_filtered[PRICE][df_filtered[PRICE] != 0]
+    min_price = price_series.min() if not price_series.empty else None
+    max_price = price_series.max() if not price_series.empty else None
+    spread = (max_price - min_price) if min_price and max_price else 0
     spread_pct = (spread / max_price * 100) if max_price else 0
 
     # --------------------------------------------------
@@ -154,7 +169,6 @@ if uploaded_file:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Filtered Data View
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Filtered Data View</div>', unsafe_allow_html=True)
 
@@ -174,20 +188,20 @@ if uploaded_file:
         st.markdown('<div class="section-title">Metric Summary</div>', unsafe_allow_html=True)
 
         summary_data = []
-        numeric_cols = df_filtered.select_dtypes(include=["number"]).columns
 
-        for col in numeric_cols:
+        for col in METRICS:
 
-            if df_filtered[col].dropna().empty:
+            if col not in df_filtered.columns:
                 continue
 
-            # Ignore 0 only for PO Price and RMRatePerKg
+            series = df_filtered[col]
+
+            # Ignore 0 only for PO Price & RMRatePerKg
             if col in ["PO Price", "RMRatePerKg"]:
-                series = df_filtered[col][df_filtered[col] != 0]
-                if series.empty:
-                    continue
-            else:
-                series = df_filtered[col]
+                series = series[series != 0]
+
+            if series.dropna().empty:
+                continue
 
             min_val = series.min()
             max_val = series.max()
@@ -228,29 +242,6 @@ if uploaded_file:
         )
 
         st.dataframe(lowest_unique, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('<div class="section-box">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Detailed Lowest PO Price Records</div>', unsafe_allow_html=True)
-
-        lowest_search = st.text_input("Search Lowest PO Records", key="lowest_search")
-        if st.button("Search Lowest", key="lowest_btn"):
-            st.toast("Lowest search applied")
-
-        st.dataframe(
-            full_text_search(df_filtered[df_filtered[PRICE] == min_price], lowest_search),
-            use_container_width=True
-        )
-
-        st.markdown(f"""
-        ### Negotiation Insight
-
-        Potential savings opportunity:
-
-        **₹ {spread:,.2f} per unit**  
-        **{spread_pct:.2f}% reduction potential**
-        """)
-
         st.markdown('</div>', unsafe_allow_html=True)
 
 else:
