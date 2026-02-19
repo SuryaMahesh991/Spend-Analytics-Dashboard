@@ -60,7 +60,7 @@ st.markdown("""
 uploaded_file = st.file_uploader("Upload Spend Data (Excel)", type=["xlsx"])
 
 # --------------------------------------------------
-# FULL TEXT SEARCH FUNCTION
+# FULL TEXT SEARCH
 # --------------------------------------------------
 def full_text_search(df, query):
     if not query:
@@ -86,7 +86,7 @@ if uploaded_file:
     PRICE = "PO Price"
     PLANT = "Plant" if "Plant" in df.columns else None
 
-    # Convert numerics safely
+    # Convert numeric columns safely
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors="ignore")
 
@@ -120,10 +120,12 @@ if uploaded_file:
         st.warning("No data available.")
         st.stop()
 
-    # Core metrics
-    min_price = df_filtered[PRICE].min()
-    max_price = df_filtered[PRICE].max()
-    spread = max_price - min_price
+    # Core price metrics
+    price_non_zero = df_filtered[PRICE][df_filtered[PRICE] != 0]
+
+    min_price = price_non_zero.min() if not price_non_zero.empty else None
+    max_price = price_non_zero.max() if not price_non_zero.empty else None
+    spread = (max_price - min_price) if min_price is not None and max_price is not None else 0
     spread_pct = (spread / max_price * 100) if max_price else 0
     supplier_count = df_filtered[SUPPLIER].nunique()
 
@@ -141,7 +143,6 @@ if uploaded_file:
     # =====================================================
     with tab1:
 
-        # Existing KPI Section
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Portfolio Overview</div>', unsafe_allow_html=True)
 
@@ -155,7 +156,7 @@ if uploaded_file:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # NEW: Filtered Data Table with Search
+        # Filtered Data Table
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Filtered Data View</div>', unsafe_allow_html=True)
 
@@ -164,7 +165,6 @@ if uploaded_file:
             st.toast("Search applied successfully")
 
         st.dataframe(full_text_search(df_filtered, search_query), use_container_width=True)
-
         st.markdown('</div>', unsafe_allow_html=True)
 
     # =====================================================
@@ -172,12 +172,10 @@ if uploaded_file:
     # =====================================================
     with tab2:
 
-        # ---- Metric Summary ----
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Metric Summary</div>', unsafe_allow_html=True)
 
         summary_data = []
-
         numeric_cols = df_filtered.select_dtypes(include=["number"]).columns
 
         for col in numeric_cols:
@@ -185,8 +183,16 @@ if uploaded_file:
             if df_filtered[col].dropna().empty:
                 continue
 
-            min_val = df_filtered[col].min()
-            max_val = df_filtered[col].max()
+            # Ignore 0 only for PO Price and RMRatePerKg
+            if col in ["PO Price", "RMRatePerKg"]:
+                series = df_filtered[col][df_filtered[col] != 0]
+                if series.empty:
+                    continue
+            else:
+                series = df_filtered[col]
+
+            min_val = series.min()
+            max_val = series.max()
 
             min_rows = df_filtered[df_filtered[col] == min_val]
             max_rows = df_filtered[df_filtered[col] == max_val]
@@ -199,61 +205,13 @@ if uploaded_file:
                 "Min": min_val,
                 "Max": max_val,
                 "Example Min Part": min_row.get(PART) if min_row is not None else None,
-                "Example Min Supplier": min_row.get(SUPPLIER) if min_row is not None else None,
                 "Example Min Plant": min_row.get(PLANT) if min_row is not None else None,
                 "Example Max Part": max_row.get(PART) if max_row is not None else None,
-                "Example Max Supplier": max_row.get(SUPPLIER) if max_row is not None else None,
                 "Example Max Plant": max_row.get(PLANT) if max_row is not None else None,
             })
 
         summary_df = pd.DataFrame(summary_data)
         st.dataframe(summary_df, use_container_width=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # ---- Min PO Records ----
-        st.markdown('<div class="section-box">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">All Minimum PO Price Records</div>', unsafe_allow_html=True)
-
-        min_df = df_filtered[df_filtered[PRICE] == min_price]
-
-        min_search = st.text_input("Search Min Records", key="min_search")
-        if st.button("Search Min", key="min_btn"):
-            st.toast("Min search applied")
-
-        st.dataframe(full_text_search(min_df, min_search), use_container_width=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # ---- Max PO Records ----
-        st.markdown('<div class="section-box">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">All Maximum PO Price Records</div>', unsafe_allow_html=True)
-
-        max_df = df_filtered[df_filtered[PRICE] == max_price]
-
-        max_search = st.text_input("Search Max Records", key="max_search")
-        if st.button("Search Max", key="max_btn"):
-            st.toast("Max search applied")
-
-        st.dataframe(full_text_search(max_df, max_search), use_container_width=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # ---- Other Records ----
-        st.markdown('<div class="section-box">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">All Other Records</div>', unsafe_allow_html=True)
-
-        other_df = df_filtered[
-            (df_filtered[PRICE] != min_price) &
-            (df_filtered[PRICE] != max_price)
-        ]
-
-        other_search = st.text_input("Search Other Records", key="other_search")
-        if st.button("Search Other", key="other_btn"):
-            st.toast("Other search applied")
-
-        st.dataframe(full_text_search(other_df, other_search), use_container_width=True)
-
         st.markdown('</div>', unsafe_allow_html=True)
 
     # =====================================================
@@ -270,10 +228,8 @@ if uploaded_file:
         )
 
         st.dataframe(lowest_unique, use_container_width=True)
-
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Detailed lowest data
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Detailed Lowest PO Price Records</div>', unsafe_allow_html=True)
 
@@ -289,11 +245,10 @@ if uploaded_file:
         st.markdown(f"""
         ### Negotiation Insight
 
-        Aligning higher-priced suppliers to this benchmark
-        presents potential savings of:
+        Potential savings opportunity:
 
         **₹ {spread:,.2f} per unit**  
-        **{spread_pct:.2f}% reduction opportunity**
+        **{spread_pct:.2f}% reduction potential**
         """)
 
         st.markdown('</div>', unsafe_allow_html=True)
