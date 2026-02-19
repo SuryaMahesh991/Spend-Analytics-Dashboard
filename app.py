@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 # --------------------------------------------------
-# STYLING (AS PROVIDED)
+# STYLING (Improved KPI Visual Polish)
 # --------------------------------------------------
 st.markdown("""
 <style>
@@ -20,17 +20,22 @@ body {
 }
 .header-bar {
     background: linear-gradient(90deg, #4e73df, #6f42c1);
-    padding: 20px;
-    border-radius: 12px;
+    padding: 22px;
+    border-radius: 14px;
     color: white;
-    margin-bottom: 25px;
+    margin-bottom: 30px;
 }
 .metric-card {
-    padding: 20px;
+    padding: 22px;
     border-radius: 14px;
     text-align: center;
     color: #333333;
     font-weight: 500;
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.05);
+}
+.metric-card h3 {
+    margin-bottom: 8px;
+    font-size: 24px;
 }
 .card-blue { background-color: #e7f1ff; }
 .card-green { background-color: #e9f7ef; }
@@ -48,7 +53,7 @@ body {
 .section-title {
     font-size: 20px;
     font-weight: 600;
-    margin-bottom: 15px;
+    margin-bottom: 18px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -87,8 +92,9 @@ if uploaded_file:
     PART = "PartNo"
     SUPPLIER = "Vendor"
     PRICE = "PO Price"
+    PLANT = "Plant"
 
-    # Metrics Definition (Restored Fully)
+    # Metrics Definition
     METRICS = {
         "PO Price": "PO Price",
         "RMRatePerKg": "RM Rate",
@@ -102,7 +108,6 @@ if uploaded_file:
         "Freight Cost": "Freight Cost"
     }
 
-    # Convert metrics to numeric
     for col in METRICS.keys():
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -154,7 +159,7 @@ if uploaded_file:
     ])
 
     # =====================================================
-    # TAB 1 – OVERVIEW (KPI CARDS RESTORED)
+    # TAB 1 – OVERVIEW (UPDATED KPI CARDS)
     # =====================================================
     with tab1:
 
@@ -163,14 +168,34 @@ if uploaded_file:
 
         c1, c2, c3, c4, c5 = st.columns(5)
 
-        c1.markdown(f"<div class='metric-card card-blue'><h3>{df[PART].nunique()}</h3>Unique Parts</div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='metric-card card-green'><h3>{df[SUPPLIER].nunique()}</h3>Active Vendors</div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='metric-card card-purple'><h3>{df[VEHICLE_MODEL].nunique()}</h3>Vehicle Models</div>", unsafe_allow_html=True)
-        c4.markdown(f"<div class='metric-card card-amber'><h3>₹ {df[PRICE].mean():,.2f}</h3>Avg PO Price</div>", unsafe_allow_html=True)
-        c5.markdown(f"<div class='metric-card card-teal'><h3>{spread_pct:.2f}%</h3>Savings Potential</div>", unsafe_allow_html=True)
+        c1.markdown(
+            f"<div class='metric-card card-blue'><h3>{df[PART].nunique()}</h3>Unique Parts</div>",
+            unsafe_allow_html=True
+        )
+
+        c2.markdown(
+            f"<div class='metric-card card-green'><h3>{df[SUPPLIER].nunique()}</h3>Active Vendors</div>",
+            unsafe_allow_html=True
+        )
+
+        c3.markdown(
+            f"<div class='metric-card card-purple'><h3>{df[VEHICLE_MODEL].nunique()}</h3>Vehicle Models</div>",
+            unsafe_allow_html=True
+        )
+
+        c4.markdown(
+            f"<div class='metric-card card-amber'><h3>{df[PART_FAMILY].nunique()}</h3>Part Families</div>",
+            unsafe_allow_html=True
+        )
+
+        c5.markdown(
+            f"<div class='metric-card card-teal'><h3>{df[PLANT].nunique()}</h3>Plants</div>",
+            unsafe_allow_html=True
+        )
 
         st.markdown('</div>', unsafe_allow_html=True)
 
+        # Filtered Data Table
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Filtered Data View</div>', unsafe_allow_html=True)
 
@@ -180,7 +205,7 @@ if uploaded_file:
         st.markdown('</div>', unsafe_allow_html=True)
 
     # =====================================================
-    # TAB 2 – COST INSIGHTS (ALL METRICS INCLUDED)
+    # TAB 2 – COST INSIGHTS (UNCHANGED)
     # =====================================================
     with tab2:
 
@@ -196,7 +221,6 @@ if uploaded_file:
 
             series = df_filtered[col]
 
-            # Ignore 0 only for PO Price and RMRatePerKg
             if col in ["PO Price", "RMRatePerKg"]:
                 series = series[series != 0]
 
