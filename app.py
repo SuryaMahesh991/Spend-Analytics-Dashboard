@@ -6,29 +6,44 @@ import plotly.express as px
 # PAGE CONFIG
 # --------------------------------------------------
 st.set_page_config(
-    page_title="Enterprise Spend Analytics",
+    page_title="Spend Analytics Dashboard",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # --------------------------------------------------
-# STYLING
+# PROFESSIONAL LIGHT THEME STYLING
 # --------------------------------------------------
 st.markdown("""
 <style>
-body { background-color: #f4f6fa; }
+body {
+    background-color: #f5f7fb;
+}
 .header-bar {
-    background: linear-gradient(90deg, #3a7bd5, #6a11cb);
+    background: linear-gradient(90deg, #4e73df, #6f42c1);
     padding: 20px;
-    border-radius: 14px;
+    border-radius: 12px;
     color: white;
     margin-bottom: 25px;
 }
+.metric-card {
+    padding: 20px;
+    border-radius: 14px;
+    text-align: center;
+    color: #333333;
+    font-weight: 500;
+}
+.card-blue { background-color: #e7f1ff; }
+.card-green { background-color: #e9f7ef; }
+.card-purple { background-color: #f3e8ff; }
+.card-amber { background-color: #fff4e6; }
+.card-teal { background-color: #e6fffa; }
+
 .section-box {
-    background: white;
+    background-color: white;
     padding: 25px;
-    border-radius: 16px;
-    box-shadow: 0px 6px 18px rgba(0,0,0,0.05);
+    border-radius: 14px;
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.04);
     margin-bottom: 25px;
 }
 .section-title {
@@ -39,6 +54,9 @@ body { background-color: #f4f6fa; }
 </style>
 """, unsafe_allow_html=True)
 
+# --------------------------------------------------
+# HEADER
+# --------------------------------------------------
 st.markdown("""
 <div class="header-bar">
 <h2>Enterprise Spend Analytics Dashboard</h2>
@@ -48,21 +66,6 @@ st.markdown("""
 
 uploaded_file = st.file_uploader("Upload Spend Data (Excel)", type=["xlsx"])
 
-# --------------------------------------------------
-# FULL TEXT SEARCH FUNCTION
-# --------------------------------------------------
-def full_text_search(dataframe, query):
-    if not query:
-        return dataframe
-    return dataframe[
-        dataframe.astype(str)
-        .apply(lambda row: row.str.contains(query, case=False, na=False))
-        .any(axis=1)
-    ]
-
-# --------------------------------------------------
-# MAIN LOGIC
-# --------------------------------------------------
 if uploaded_file:
 
     df = pd.read_excel(uploaded_file)
@@ -75,32 +78,41 @@ if uploaded_file:
     PRICE = "PO Price"
     PLANT = "Plant" if "Plant" in df.columns else None
 
-    numeric_cols = df.select_dtypes(include=["number"]).columns
-    for col in numeric_cols:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+    METRICS = {
+        "PO Price": "PO Price",
+        "RMRatePerKg": "RM Rate",
+        "GrossWeight": "Gross Weight",
+        "Net RM Cost": "Net RM Cost",
+        "Net Conversion Cost": "Conversion Cost",
+        "Overhead Combined Cost": "Overhead Cost",
+        "Profit Cost": "Profit Cost",
+        "Rejection Cost": "Rejection Cost",
+        "Packaging Cost": "Packaging Cost",
+        "Freight Cost": "Freight Cost"
+    }
 
-    # ------------------ FILTERS ------------------
-    st.sidebar.header("Filters")
+    for col in METRICS:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    family = st.sidebar.selectbox(
-        "Part Family",
-        sorted(df[PART_FAMILY].dropna().unique())
-    )
+    # --------------------------------------------------
+    # SIDEBAR FILTERS
+    # --------------------------------------------------
+    st.sidebar.markdown("## 🎯 Filters")
+
+    family = st.sidebar.selectbox("Part Family",
+                                  sorted(df[PART_FAMILY].dropna().unique()))
 
     df_filtered = df[df[PART_FAMILY] == family]
 
-    model = st.sidebar.selectbox(
-        "Vehicle Model",
-        ["All Models"] + sorted(df_filtered[VEHICLE_MODEL].dropna().unique())
-    )
+    model = st.sidebar.selectbox("Vehicle Model",
+                                 ["All Models"] + sorted(df_filtered[VEHICLE_MODEL].dropna().unique()))
 
     if model != "All Models":
         df_filtered = df_filtered[df_filtered[VEHICLE_MODEL] == model]
 
-    part = st.sidebar.selectbox(
-        "Part No",
-        ["All Parts"] + sorted(df_filtered[PART].dropna().unique())
-    )
+    part = st.sidebar.selectbox("Part No",
+                                ["All Parts"] + sorted(df_filtered[PART].dropna().unique()))
 
     if part != "All Parts":
         df_filtered = df_filtered[df_filtered[PART] == part]
@@ -109,9 +121,12 @@ if uploaded_file:
         st.warning("No data available.")
         st.stop()
 
+    # Core Calculations
     min_price = df_filtered[PRICE].min()
     max_price = df_filtered[PRICE].max()
     spread = max_price - min_price
+    spread_pct = (spread / max_price * 100) if max_price else 0
+    supplier_count = df_filtered[SUPPLIER].nunique()
 
     # --------------------------------------------------
     # TABS
@@ -126,15 +141,29 @@ if uploaded_file:
     # TAB 1 – OVERVIEW
     # =====================================================
     with tab1:
+
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Filtered Dataset</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Portfolio Overview</div>', unsafe_allow_html=True)
 
-        search_query = st.text_input("Search within filtered data", key="overview_search")
-        if st.button("Search", key="overview_btn"):
-            st.toast("Search applied successfully")
+        c1, c2, c3, c4, c5 = st.columns(5)
 
-        df_display = full_text_search(df_filtered, search_query)
-        st.dataframe(df_display, use_container_width=True)
+        c1.markdown(f"<div class='metric-card card-blue'><h3>{df[PART].nunique()}</h3>Unique Parts</div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='metric-card card-green'><h3>{df[SUPPLIER].nunique()}</h3>Active Vendors</div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='metric-card card-purple'><h3>{df[VEHICLE_MODEL].nunique()}</h3>Vehicle Models</div>", unsafe_allow_html=True)
+        c4.markdown(f"<div class='metric-card card-amber'><h3>₹ {df[PRICE].mean():,.2f}</h3>Avg PO Price</div>", unsafe_allow_html=True)
+        c5.markdown(f"<div class='metric-card card-teal'><h3>{spread_pct:.2f}%</h3>Savings Potential</div>", unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="section-box">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Current Selection</div>', unsafe_allow_html=True)
+
+        st.write(f"**Part Family:** {family}")
+        st.write(f"**Vehicle Model:** {model}")
+        st.write(f"**Part No:** {part}")
+        st.write(f"**Suppliers in Scope:** {supplier_count}")
+        st.write(f"**Price Spread:** ₹ {spread:,.2f}")
+
         st.markdown('</div>', unsafe_allow_html=True)
 
     # =====================================================
@@ -146,68 +175,30 @@ if uploaded_file:
         st.markdown('<div class="section-title">Metric Summary</div>', unsafe_allow_html=True)
 
         summary_data = []
-
-        for col in df_filtered.select_dtypes(include=["number"]).columns:
-            min_val = df_filtered[col].min()
-            max_val = df_filtered[col].max()
-
-            min_row = df_filtered[df_filtered[col] == min_val].iloc[0]
-            max_row = df_filtered[df_filtered[col] == max_val].iloc[0]
-
-            summary_data.append({
-                "Metric": col,
-                "Min": min_val,
-                "Max": max_val,
-                "Min Part": min_row.get(PART),
-                "Min Supplier": min_row.get(SUPPLIER),
-                "Min Plant": min_row.get(PLANT),
-                "Max Part": max_row.get(PART),
-                "Max Supplier": max_row.get(SUPPLIER),
-                "Max Plant": max_row.get(PLANT),
-            })
+        for col, label in METRICS.items():
+            if col in df_filtered.columns:
+                min_val = df_filtered[col].min()
+                max_val = df_filtered[col].max()
+                summary_data.append({
+                    "Metric": label,
+                    "Min": min_val,
+                    "Max": max_val,
+                    "Spread": max_val - min_val
+                })
 
         summary_df = pd.DataFrame(summary_data)
         st.dataframe(summary_df, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
-        # ---------------- Min Records ----------------
-        st.markdown('<div class="section-box">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">All Minimum PO Price Records</div>', unsafe_allow_html=True)
+        fig_minmax = px.bar(
+            summary_df,
+            x="Metric",
+            y=["Min", "Max"],
+            barmode="group",
+            color_discrete_sequence=["#4e73df", "#e74a3b"]
+        )
+        fig_minmax.update_layout(template="plotly_white")
+        st.plotly_chart(fig_minmax, use_container_width=True)
 
-        min_df = df_filtered[df_filtered[PRICE] == min_price]
-        min_search = st.text_input("Search Min Records", key="min_search")
-        if st.button("Search Min", key="min_btn"):
-            st.toast("Min search applied")
-
-        st.dataframe(full_text_search(min_df, min_search), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # ---------------- Max Records ----------------
-        st.markdown('<div class="section-box">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">All Maximum PO Price Records</div>', unsafe_allow_html=True)
-
-        max_df = df_filtered[df_filtered[PRICE] == max_price]
-        max_search = st.text_input("Search Max Records", key="max_search")
-        if st.button("Search Max", key="max_btn"):
-            st.toast("Max search applied")
-
-        st.dataframe(full_text_search(max_df, max_search), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # ---------------- Other Records ----------------
-        st.markdown('<div class="section-box">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">All Other Records</div>', unsafe_allow_html=True)
-
-        other_df = df_filtered[
-            (df_filtered[PRICE] != min_price) &
-            (df_filtered[PRICE] != max_price)
-        ]
-
-        other_search = st.text_input("Search Other Records", key="other_search")
-        if st.button("Search Other", key="other_btn"):
-            st.toast("Other search applied")
-
-        st.dataframe(full_text_search(other_df, other_search), use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     # =====================================================
@@ -216,30 +207,25 @@ if uploaded_file:
     with tab3:
 
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Unique Lowest Cost Combinations</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Lowest Cost Combination</div>', unsafe_allow_html=True)
 
-        lowest_unique = (
-            df_filtered[df_filtered[PRICE] == min_price]
-            .drop_duplicates(subset=[PART, SUPPLIER, PLANT])
-        )
+        best_rows = df_filtered[df_filtered[PRICE] == min_price]
 
-        st.dataframe(lowest_unique[[PART_FAMILY, VEHICLE_MODEL, PART, SUPPLIER, PLANT, PRICE]],
-                     use_container_width=True)
+        cols_to_show = [PART_FAMILY, VEHICLE_MODEL, PART, SUPPLIER, PRICE]
+        if PLANT:
+            cols_to_show.insert(4, PLANT)
 
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.dataframe(best_rows[cols_to_show], use_container_width=True)
 
-        # Detailed lowest data
-        st.markdown('<div class="section-box">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Detailed Lowest PO Price Data</div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        ### Negotiation Insight
 
-        detail_search = st.text_input("Search Lowest PO Records", key="lowest_search")
-        if st.button("Search Lowest", key="lowest_btn"):
-            st.toast("Lowest search applied")
+        Aligning higher-priced suppliers to this benchmark
+        presents potential savings of:
 
-        st.dataframe(full_text_search(
-            df_filtered[df_filtered[PRICE] == min_price],
-            detail_search
-        ), use_container_width=True)
+        **₹ {spread:,.2f} per unit**  
+        **{spread_pct:.2f}% reduction opportunity**
+        """)
 
         st.markdown('</div>', unsafe_allow_html=True)
 
