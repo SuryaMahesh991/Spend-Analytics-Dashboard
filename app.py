@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 
 # --------------------------------------------------
 # PAGE CONFIG
@@ -17,6 +16,7 @@ st.set_page_config(
 st.markdown("""
 <style>
 body { background-color: #f5f7fb; }
+
 .header-bar {
     background: linear-gradient(90deg, #4e73df, #6f42c1);
     padding: 20px;
@@ -24,17 +24,20 @@ body { background-color: #f5f7fb; }
     color: white;
     margin-bottom: 25px;
 }
+
 .metric-card {
     padding: 20px;
     border-radius: 14px;
     text-align: center;
-    font-weight: 500;
+    font-weight: 600;
 }
+
 .card-blue { background-color: #e7f1ff; }
 .card-green { background-color: #e9f7ef; }
 .card-purple { background-color: #f3e8ff; }
 .card-amber { background-color: #fff4e6; }
 .card-teal { background-color: #e6fffa; }
+
 .section-box {
     background-color: white;
     padding: 25px;
@@ -42,6 +45,7 @@ body { background-color: #f5f7fb; }
     box-shadow: 0px 4px 12px rgba(0,0,0,0.04);
     margin-bottom: 25px;
 }
+
 .section-title {
     font-size: 20px;
     font-weight: 600;
@@ -85,8 +89,10 @@ if uploaded_file:
     SUPPLIER = "Vendor"
     PRICE = "PO Price"
 
-    # Convert PO to numeric
+    # Convert relevant numeric fields
     df[PRICE] = pd.to_numeric(df[PRICE], errors="coerce")
+    if "RMRatePerKg" in df.columns:
+        df["RMRatePerKg"] = pd.to_numeric(df["RMRatePerKg"], errors="coerce")
 
     # ---------------- FILTERS ----------------
     st.sidebar.markdown("## 🎯 Filters")
@@ -135,18 +141,20 @@ if uploaded_file:
     ])
 
     # =====================================================
-    # TAB 1 – OVERVIEW
+    # TAB 1 – OVERVIEW (RESTORED KPI CARDS)
     # =====================================================
     with tab1:
 
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Portfolio Overview</div>', unsafe_allow_html=True)
 
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4, c5 = st.columns(5)
 
-        c1.metric("Unique Parts", df[PART].nunique())
-        c2.metric("Active Vendors", df[SUPPLIER].nunique())
-        c3.metric("Vehicle Models", df[VEHICLE_MODEL].nunique())
+        c1.markdown(f"<div class='metric-card card-blue'><h3>{df[PART].nunique()}</h3>Unique Parts</div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='metric-card card-green'><h3>{df[SUPPLIER].nunique()}</h3>Active Vendors</div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='metric-card card-purple'><h3>{df[VEHICLE_MODEL].nunique()}</h3>Vehicle Models</div>", unsafe_allow_html=True)
+        c4.markdown(f"<div class='metric-card card-amber'><h3>₹ {df[PRICE].mean():,.2f}</h3>Avg PO Price</div>", unsafe_allow_html=True)
+        c5.markdown(f"<div class='metric-card card-teal'><h3>{spread_pct:.2f}%</h3>Savings Potential</div>", unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -159,29 +167,64 @@ if uploaded_file:
         st.markdown('</div>', unsafe_allow_html=True)
 
     # =====================================================
-    # TAB 2 – COST INSIGHTS
+    # TAB 2 – COST INSIGHTS (ALL METRICS RESTORED)
     # =====================================================
     with tab2:
 
-        # ---- Metric Summary ----
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">PO Price Benchmark Summary</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Metric Summary</div>', unsafe_allow_html=True)
 
-        min_row = df_filtered[df_filtered[PRICE] == min_price].iloc[0] if min_price else None
-        max_row = df_filtered[df_filtered[PRICE] == max_price].iloc[0] if max_price else None
+        METRICS = [
+            "PO Price",
+            "RMRatePerKg",
+            "GrossWeight",
+            "Net RM Cost",
+            "Net Conversion Cost",
+            "Overhead Combined Cost",
+            "Profit Cost",
+            "Rejection Cost",
+            "Packaging Cost",
+            "Freight Cost"
+        ]
 
-        summary_df = pd.DataFrame([{
-            "Metric": "PO Price",
-            "Min": min_price,
-            "(Min) Part No": min_row[PART] if min_row is not None else None,
-            "Max": max_price,
-            "(Max) Part No": max_row[PART] if max_row is not None else None,
-        }])
+        summary_data = []
 
+        for col in METRICS:
+
+            if col not in df_filtered.columns:
+                continue
+
+            series = df_filtered[col]
+
+            if col in ["PO Price", "RMRatePerKg"]:
+                series = series[series != 0]
+
+            if series.dropna().empty:
+                continue
+
+            min_val = series.min()
+            max_val = series.max()
+
+            min_rows = df_filtered[df_filtered[col] == min_val]
+            max_rows = df_filtered[df_filtered[col] == max_val]
+
+            min_row = min_rows.iloc[0] if not min_rows.empty else None
+            max_row = max_rows.iloc[0] if not max_rows.empty else None
+
+            summary_data.append({
+                "Metric": col,
+                "Min": min_val,
+                "(Min) Part No": min_row[PART] if min_row is not None else None,
+                "Max": max_val,
+                "(Max) Part No": max_row[PART] if max_row is not None else None,
+            })
+
+        summary_df = pd.DataFrame(summary_data)
         st.dataframe(summary_df, use_container_width=True)
+
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # ---- Filtered Data View Again ----
+        # Filtered data view again
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Filtered Data View</div>', unsafe_allow_html=True)
 
@@ -191,7 +234,7 @@ if uploaded_file:
         st.markdown('</div>', unsafe_allow_html=True)
 
     # =====================================================
-    # TAB 3 – IDEAL SOURCING
+    # TAB 3 – IDEAL SOURCING (UNCHANGED)
     # =====================================================
     with tab3:
 
@@ -206,29 +249,31 @@ if uploaded_file:
         st.dataframe(lowest_unique, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # ---- Cost Saving Opportunity ----
+        # Cost Saving Opportunity
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Cost Saving Opportunity</div>', unsafe_allow_html=True)
 
-        if spread > 0 and min_row is not None and max_row is not None:
+        if spread > 0 and min_price and max_price:
+
+            min_row = df_filtered[df_filtered[PRICE] == min_price].iloc[0]
+            max_row = df_filtered[df_filtered[PRICE] == max_price].iloc[0]
 
             st.write(f"""
             The highest PO price Part **{max_row[PART]}** can be benchmarked 
             against the lowest PO price Part **{min_row[PART]}**.
 
-            This presents a potential savings opportunity of:
+            Potential Savings:
 
             **₹ {spread:,.2f} per unit**  
             **{spread_pct:.2f}% reduction potential**
 
-            SOB can be reviewed and adjusted towards the lower cost supplier
-            as part of ideal sourcing strategy.
+            SOB can be reviewed and adjusted towards the lower cost benchmark.
             """)
 
         else:
             st.write("""
             No cost saving opportunity identified for the current selection.
-            All suppliers are already aligned at similar pricing levels.
+            Pricing levels are already aligned.
             """)
 
         st.markdown('</div>', unsafe_allow_html=True)
