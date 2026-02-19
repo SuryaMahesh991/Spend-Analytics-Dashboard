@@ -34,7 +34,7 @@ hr {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("Spend Analytics Dashboard")
+st.title("Spend Analytics - Dashboard")
 
 uploaded_file = st.file_uploader("Upload Spend Data (Excel)", type=["xlsx"])
 
@@ -284,4 +284,4 @@ if uploaded_file:
         st.dataframe(df_display.sort_values(PRICE), use_container_width=True)
 
 else:
-    st.info("Upload spend data to begin analysis.")
+    st.info("Pls Upload spend data to begin analysis.")
