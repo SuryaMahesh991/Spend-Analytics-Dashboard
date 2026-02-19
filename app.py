@@ -11,12 +11,13 @@ st.set_page_config(
 )
 
 # --------------------------------------------------
-# STYLING
+# STYLING (AS PROVIDED)
 # --------------------------------------------------
 st.markdown("""
 <style>
-body { background-color: #f5f7fb; }
-
+body {
+    background-color: #f5f7fb;
+}
 .header-bar {
     background: linear-gradient(90deg, #4e73df, #6f42c1);
     padding: 20px;
@@ -24,14 +25,13 @@ body { background-color: #f5f7fb; }
     color: white;
     margin-bottom: 25px;
 }
-
 .metric-card {
     padding: 20px;
     border-radius: 14px;
     text-align: center;
-    font-weight: 600;
+    color: #333333;
+    font-weight: 500;
 }
-
 .card-blue { background-color: #e7f1ff; }
 .card-green { background-color: #e9f7ef; }
 .card-purple { background-color: #f3e8ff; }
@@ -45,7 +45,6 @@ body { background-color: #f5f7fb; }
     box-shadow: 0px 4px 12px rgba(0,0,0,0.04);
     margin-bottom: 25px;
 }
-
 .section-title {
     font-size: 20px;
     font-weight: 600;
@@ -89,10 +88,24 @@ if uploaded_file:
     SUPPLIER = "Vendor"
     PRICE = "PO Price"
 
-    # Convert relevant numeric fields
-    df[PRICE] = pd.to_numeric(df[PRICE], errors="coerce")
-    if "RMRatePerKg" in df.columns:
-        df["RMRatePerKg"] = pd.to_numeric(df["RMRatePerKg"], errors="coerce")
+    # Metrics Definition (Restored Fully)
+    METRICS = {
+        "PO Price": "PO Price",
+        "RMRatePerKg": "RM Rate",
+        "GrossWeight": "Gross Weight",
+        "Net RM Cost": "Net RM Cost",
+        "Net Conversion Cost": "Conversion Cost",
+        "Overhead Combined Cost": "Overhead Cost",
+        "Profit Cost": "Profit Cost",
+        "Rejection Cost": "Rejection Cost",
+        "Packaging Cost": "Packaging Cost",
+        "Freight Cost": "Freight Cost"
+    }
+
+    # Convert metrics to numeric
+    for col in METRICS.keys():
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
     # ---------------- FILTERS ----------------
     st.sidebar.markdown("## 🎯 Filters")
@@ -124,7 +137,7 @@ if uploaded_file:
         st.warning("No data available.")
         st.stop()
 
-    # ---- Core Calculations ----
+    # ---- Core Price Calculations ----
     price_series = df_filtered[PRICE][df_filtered[PRICE] != 0]
     min_price = price_series.min() if not price_series.empty else None
     max_price = price_series.max() if not price_series.empty else None
@@ -141,7 +154,7 @@ if uploaded_file:
     ])
 
     # =====================================================
-    # TAB 1 – OVERVIEW (RESTORED KPI CARDS)
+    # TAB 1 – OVERVIEW (KPI CARDS RESTORED)
     # =====================================================
     with tab1:
 
@@ -167,35 +180,23 @@ if uploaded_file:
         st.markdown('</div>', unsafe_allow_html=True)
 
     # =====================================================
-    # TAB 2 – COST INSIGHTS (ALL METRICS RESTORED)
+    # TAB 2 – COST INSIGHTS (ALL METRICS INCLUDED)
     # =====================================================
     with tab2:
 
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Metric Summary</div>', unsafe_allow_html=True)
 
-        METRICS = [
-            "PO Price",
-            "RMRatePerKg",
-            "GrossWeight",
-            "Net RM Cost",
-            "Net Conversion Cost",
-            "Overhead Combined Cost",
-            "Profit Cost",
-            "Rejection Cost",
-            "Packaging Cost",
-            "Freight Cost"
-        ]
-
         summary_data = []
 
-        for col in METRICS:
+        for col, label in METRICS.items():
 
             if col not in df_filtered.columns:
                 continue
 
             series = df_filtered[col]
 
+            # Ignore 0 only for PO Price and RMRatePerKg
             if col in ["PO Price", "RMRatePerKg"]:
                 series = series[series != 0]
 
@@ -212,7 +213,7 @@ if uploaded_file:
             max_row = max_rows.iloc[0] if not max_rows.empty else None
 
             summary_data.append({
-                "Metric": col,
+                "Metric": label,
                 "Min": min_val,
                 "(Min) Part No": min_row[PART] if min_row is not None else None,
                 "Max": max_val,
@@ -224,7 +225,7 @@ if uploaded_file:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Filtered data view again
+        # Filtered Data View
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Filtered Data View</div>', unsafe_allow_html=True)
 
@@ -249,7 +250,6 @@ if uploaded_file:
         st.dataframe(lowest_unique, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Cost Saving Opportunity
         st.markdown('<div class="section-box">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Cost Saving Opportunity</div>', unsafe_allow_html=True)
 
