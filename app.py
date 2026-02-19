@@ -203,11 +203,11 @@ if uploaded_file:
             summary_data.append({
                 "Metric": col,
                 "Min": min_val,
+                "(Min) Part No": min_row.get(PART) if min_row is not None else None,
+                "(Min) Plant": min_row.get(PLANT) if min_row is not None else None,
                 "Max": max_val,
-                "Example Min Part": min_row.get(PART) if min_row is not None else None,
-                "Example Min Plant": min_row.get(PLANT) if min_row is not None else None,
-                "Example Max Part": max_row.get(PART) if max_row is not None else None,
-                "Example Max Plant": max_row.get(PLANT) if max_row is not None else None,
+                "(Max) PartNo": max_row.get(PART) if max_row is not None else None,
+                "(Max) Plant": max_row.get(PLANT) if max_row is not None else None,
             })
 
         summary_df = pd.DataFrame(summary_data)
